@@ -1,6 +1,7 @@
 package inconsistency_measure;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.text.DecimalFormat;
@@ -14,7 +15,9 @@ import java.util.Set;
 import org.semanticweb.HermiT.Configuration;
 import org.semanticweb.HermiT.Reasoner.ReasonerFactory;
 import org.semanticweb.owl.explanation.api.Explanation;
+import org.semanticweb.owl.explanation.api.ExplanationException;
 import org.semanticweb.owl.explanation.api.ExplanationGenerator;
+import org.semanticweb.owl.explanation.api.ExplanationGeneratorInterruptedException;
 import org.semanticweb.owl.explanation.impl.blackbox.checker.InconsistentOntologyExplanationGeneratorFactory;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.AddAxiom;
@@ -42,6 +45,7 @@ import org.semanticweb.owlapi.model.OWLObjectPropertyAssertionAxiom;
 import org.semanticweb.owlapi.model.OWLObjectPropertyDomainAxiom;
 import org.semanticweb.owlapi.model.OWLObjectPropertyRangeAxiom;
 import org.semanticweb.owlapi.model.OWLOntology;
+import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLReflexiveObjectPropertyAxiom;
 import org.semanticweb.owlapi.model.OWLSameIndividualAxiom;
@@ -52,6 +56,8 @@ import org.semanticweb.owlapi.model.OWLTransitiveObjectPropertyAxiom;
 import org.semanticweb.owlapi.model.RemoveAxiom;
 import org.semanticweb.owlapi.reasoner.InconsistentOntologyException;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
+import org.semanticweb.owlapi.reasoner.ReasonerInterruptedException;
+import org.semanticweb.owlapi.reasoner.TimeOutException;
 
 public class inconsistency_measure_hermit {
 
@@ -61,12 +67,12 @@ public class inconsistency_measure_hermit {
 
 		try {
 			// System.out.println(System.getProperty("line.separator"));
-			File file = new File("output_hermit_.txt");
+			File file = new File("output_jfact_knowledgebaseK1.txt");
 			FileOutputStream fos = new FileOutputStream(file);
 			PrintStream ps = new PrintStream(fos);
 			System.setOut(ps);
 
-			System.err.close();
+			//System.err.close();
 
 			ArrayList<Integer> explanationSizeList = new ArrayList<>();
 			ArrayList<Set<OWLAxiom>> MCKcandidate = new ArrayList<Set<OWLAxiom>>();
@@ -88,8 +94,8 @@ public class inconsistency_measure_hermit {
 
 			HashSet<OWLAxiom> ontologyAxiomSet = new HashSet<OWLAxiom>(3000000, 1000000F);
 
-			File inputOntologyFile = new File("examples/knowledgebaseK4.owl");
-			ReasonerFactory rf = new ReasonerFactory();
+			File inputOntologyFile = new File("examples/knowledgebaseK1.owl");
+			ReasonerFactory rf = new ReasonerFactory(); 
 
 			OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
 
@@ -99,18 +105,12 @@ public class inconsistency_measure_hermit {
 
 			Configuration configuration = new Configuration();
 			configuration.throwInconsistentOntologyException = false;
+
 			OWLReasoner reasoner = rf.createReasoner(ontology, configuration);
 
 			System.out.println(
 					"Is ontology (file name: " + inputOntologyFile + ") consistent? " + reasoner.isConsistent());
-
-			ExplanationGenerator<OWLAxiom> explainInconsistency = new InconsistentOntologyExplanationGeneratorFactory(
-					rf, 1000L).createExplanationGenerator(ontology);
-
-			Set<Explanation<OWLAxiom>> explanations = explainInconsistency
-					.getExplanations(df.getOWLSubClassOfAxiom(df.getOWLThing(), df.getOWLNothing()));
-			System.out.println("Explanation of inconsistency (MI(K)): " + explanations);
-
+			
 			Set<OWLAxiom> ontologyAxiomsCausingUnsatisfiable = new HashSet<OWLAxiom>();
 
 			Set<OWLSubClassOfAxiom> OWLSubClassOfAxiomSet = ontology.getAxioms(AxiomType.SUBCLASS_OF);
@@ -246,6 +246,31 @@ public class inconsistency_measure_hermit {
 
 			Set<OWLAxiom> theSet = new HashSet<OWLAxiom>(3000000, 1000000F);
 			theSet.addAll(ontologyAxiomSet);
+			
+			System.out.println("======================");
+			
+			int sizeOfK = ontologyAxiomSet.size();
+			System.out.println("Size of K: " + sizeOfK);
+			
+			System.out.println("                                   ");
+			System.out.println("===============================================================");
+			System.out.println("==============INCONSISTENCY MEASURES FOR ONTOLOGY==============");
+			System.out.println("===============================================================");
+
+			if (reasoner.isConsistent()) {
+				System.out.println("1. DRASTIC INCONSISTENCY MEASURE I_d: " + 0);
+			} else {
+				System.out.println("1. DRASTIC INCONSISTENCY MEASURE I_d: " + 1);
+			}
+			
+			System.out.println("***************************************************************");
+			
+			ExplanationGenerator<OWLAxiom> explainInconsistency = new InconsistentOntologyExplanationGeneratorFactory(
+					rf, 1000000000000000000L).createExplanationGenerator(ontology);
+
+			Set<Explanation<OWLAxiom>> explanations = explainInconsistency
+					.getExplanations(df.getOWLSubClassOfAxiom(df.getOWLThing(), df.getOWLNothing()), 941); //set the limit of entailment
+			System.out.println("Explanation of inconsistency (MI(K)): " + explanations);
 
 			for (Explanation<OWLAxiom> explanation : explanations) { // explanation
 																		// is
@@ -305,14 +330,6 @@ public class inconsistency_measure_hermit {
 
 			}
 
-			// System.out.println("SIZE: " + explanations.size());
-
-			// System.out.println("explanationSizeList: " +
-			// explanationSizeList.size());
-
-			// System.out.println("ExplanationSet: " +
-			// arrayOfExplanationSet.size());
-
 			float RiK;
 			float Msize;
 			float OneMinusRiK;
@@ -366,20 +383,8 @@ public class inconsistency_measure_hermit {
 			System.out.println("OWLAsymmetricObjectPropertyAxiomSetSize: " + OWLAsymmetricObjectPropertyAxiomSetSize);
 			System.out.println("OWLTransitiveObjectPropertyAxiomSetSize: " + OWLTransitiveObjectPropertyAxiomSetSize);
 
-			int sizeOfK = ontologyAxiomSet.size();
-			System.out.println("Size of K: " + sizeOfK);
-
-			System.out.println("                                   ");
-			System.out.println("===============================================================");
-			System.out.println("==============INCONSISTENCY MEASURES FOR ONTOLOGY==============");
-			System.out.println("===============================================================");
-
-			if (reasoner.isConsistent()) {
-				System.out.println("1. DRASTIC INCONSISTENCY MEASURE I_d: " + 0);
-			} else {
-				System.out.println("1. DRASTIC INCONSISTENCY MEASURE I_d: " + 1);
-			}
-			System.out.println("***************************************************************");
+			System.out.println("----------------------------------------------------------------");
+			
 			float sizeOfMI = explanations.size();
 			System.out.println("Explanation size: " + explanations.size());
 
@@ -387,7 +392,7 @@ public class inconsistency_measure_hermit {
 			System.out.println("***************************************************************");
 			System.out.println("3. MI^C-INCONSISTENCY MEASURE I_mic: " + sumOfSize);
 			System.out.println("***************************************************************");
-
+			
 			ReasonerFactory rf6 = new ReasonerFactory();
 			OWLOntologyManager manager6 = OWLManager.createOWLOntologyManager();
 			OWLOntology AxiomOntology6 = manager6.createOntology();
@@ -487,7 +492,7 @@ public class inconsistency_measure_hermit {
 				System.out.println("6. INCOMPATIBILITY RATIO INCONSISTENCY MEASURE I_ir: " + I_ir);
 			}
 			System.out.println("***************************************************************");
-
+			
 			if (explanations.size() > 0) {
 
 				for (Set<OWLAxiom> inconsistent : inconsistentSubset) {
@@ -555,7 +560,7 @@ public class inconsistency_measure_hermit {
 
 			System.out.println("7. MC INCONSISTENCY MEASURE I_mc: " + imc);
 			System.out.println("***************************************************************");
-
+			
 			System.out.println("Size of consistent subset size: " + consistentSubsetSize.size());
 
 			if (consistentSubsetSize.size() != 0) {
@@ -613,7 +618,7 @@ public class inconsistency_measure_hermit {
 				System.out.println("9. MV INCONSISTENCY MEASURE I_mv: " + cardOfSignAxiomMIKUnion / cardOfSignInK);
 			}
 			System.out.println("***************************************************************");
-
+			
 			ReasonerFactory rf3 = new ReasonerFactory();
 			OWLOntologyManager manager3 = OWLManager.createOWLOntologyManager();
 			OWLOntology AxiomOntology3 = manager3.createOntology();
@@ -797,7 +802,8 @@ public class inconsistency_measure_hermit {
 			}
 			System.out.println("***************************************************************");
 			System.out.println("14. MI SHAPLEY INCONSISTENCY MEASURE: ");
-			float shapleyValue, shapleyVal;
+			double shapleyValue, shapleyVal;
+			//long shapleyValue, shapleyVal;
 			int c, n;
 			// System.out.println("Factorial of 3: " + factorial(3));
 
@@ -808,7 +814,9 @@ public class inconsistency_measure_hermit {
 			AddAxiom addAxiom4;
 			Set<OWLAxiom> axiomsToRemove4;
 			int sizeOfMIOfC, sizeOfMIOfCMinusAlpha;
-			float factorial1, factorial2, factorial3, firstComputation, secondComputation;
+			//float factorial1, factorial2, factorial3, firstComputation, secondComputation;
+			long factorial1, factorial2, factorial3;
+			double firstComputation, secondComputation;
 
 			for (OWLAxiom alpha : ontologyAxiomSet) {
 				System.out.println("Alpha: " + alpha);
@@ -844,10 +852,10 @@ public class inconsistency_measure_hermit {
 					System.out.println("Is C consistent? " + reasoner4.isConsistent());
 
 					ExplanationGenerator<OWLAxiom> explainInconsistency4 = new InconsistentOntologyExplanationGeneratorFactory(
-							rf4, 1000L).createExplanationGenerator(AxiomOntology);
+							rf4, 1000000000000000000L).createExplanationGenerator(AxiomOntology);
 
 					Set<Explanation<OWLAxiom>> explanations4 = explainInconsistency4
-							.getExplanations(df4.getOWLSubClassOfAxiom(df4.getOWLThing(), df4.getOWLNothing()));
+							.getExplanations(df4.getOWLSubClassOfAxiom(df4.getOWLThing(), df4.getOWLNothing()), 941); //set the limit of entailment
 					System.out.println("Explanation of inconsistency of C: " + explanations4);
 
 					RemoveAxiom removeAxiom = new RemoveAxiom(AxiomOntology, alpha);
@@ -865,10 +873,10 @@ public class inconsistency_measure_hermit {
 					System.out.println("Is C minus alpha consistent? " + reasoner4.isConsistent());
 
 					ExplanationGenerator<OWLAxiom> explainInconsistency5 = new InconsistentOntologyExplanationGeneratorFactory(
-							rf4, 1000L).createExplanationGenerator(AxiomOntology);
+							rf4, 1000000000000000000L).createExplanationGenerator(AxiomOntology);
 
 					Set<Explanation<OWLAxiom>> explanations5 = explainInconsistency5
-							.getExplanations(df.getOWLSubClassOfAxiom(df4.getOWLThing(), df4.getOWLNothing()));
+							.getExplanations(df.getOWLSubClassOfAxiom(df4.getOWLThing(), df4.getOWLNothing()), 941); //set the limit of entailment
 					System.out.println("Explanation of inconsistency C minus alpha: " + explanations5);
 
 					sizeOfMIOfCMinusAlpha = explanations5.size();
@@ -881,26 +889,26 @@ public class inconsistency_measure_hermit {
 					factorial1 = factorial(c - 1);
 					factorial2 = factorial(n - c);
 					factorial3 = factorial(n);
-					firstComputation = (factorial1 * factorial2) / factorial3;
-					secondComputation = sizeOfMIOfC - sizeOfMIOfCMinusAlpha;
+					firstComputation = ((double) factorial1 * (double) factorial2) / (double) factorial3;
+					secondComputation = (double) sizeOfMIOfC - (double) sizeOfMIOfCMinusAlpha;
 
-					System.out.println("factorial(c-1): " + factorial1);
-					System.out.println("factorial(n-c): " + factorial2);
-					System.out.println("factorial(n): " + factorial3);
-					// System.out.println("First Computation: " +
-					// firstComputation);
-					System.out.println("(Size of MI of C) - (Size of MI of C minus alpha): " + secondComputation);
+					System.out.println("factorial(c-1): " + new DecimalFormat("####.##").format((double) factorial1));
+					System.out.println("factorial(n-c): " + new DecimalFormat("####.##").format((double) factorial2));
+					System.out.println("factorial(n): " + new DecimalFormat("####.##").format((double) factorial3));
+					System.out.println("First Computation: " +
+							new DecimalFormat("####.##").format(firstComputation));
+					System.out.println("(Size of MI of C) - (Size of MI of C minus alpha): " + new DecimalFormat("####.##").format(secondComputation));
 
 					shapleyVal = firstComputation * secondComputation;
-					System.out.println("Shapley value: " + shapleyVal);
+					System.out.println("Shapley value: " + new DecimalFormat("####.##").format(shapleyVal));
 					shapleyValue = shapleyValue + shapleyVal;
 					System.out.println("Sum of Shapley Value = " + new DecimalFormat("####.##").format(shapleyValue));
 					System.out.println("========================================");
 				}
-				System.out.println("S^(I_MI)(K," + alpha + ") = " + shapleyValue);
+				System.out.println("S^(I_MI)(K," + alpha + ") = " + new DecimalFormat("####.##").format(shapleyValue));
 				System.out.println("-----------------------------------------------");
 			}
-
+			
 			System.out.println("***************************************************************");
 			System.out.println("15. SCORING INCONSISTENCY MEASURE I_s: ");
 
@@ -948,10 +956,10 @@ public class inconsistency_measure_hermit {
 				System.out.println("Is K minus alpha consistent? " + reasoner7.isConsistent());
 
 				ExplanationGenerator<OWLAxiom> explainInconsistency7 = new InconsistentOntologyExplanationGeneratorFactory(
-						rf7, 1000L).createExplanationGenerator(AxiomOntology7);
+						rf7, 1000000000000000000L).createExplanationGenerator(AxiomOntology7);
 
 				Set<Explanation<OWLAxiom>> explanations7 = explainInconsistency7
-						.getExplanations(df7.getOWLSubClassOfAxiom(df7.getOWLThing(), df7.getOWLNothing()));
+						.getExplanations(df7.getOWLSubClassOfAxiom(df7.getOWLThing(), df7.getOWLNothing()), 941); //set the limit of entailment
 				System.out.println("Explanation of inconsistency K minus alpha: " + explanations7);
 
 				sizeOfMIOfK = explanations.size();
@@ -976,6 +984,20 @@ public class inconsistency_measure_hermit {
 			System.out.println("NoSuchElementException: " + e.getMessage());
 		} catch (InconsistentOntologyException f) {
 			System.out.println("InconsistentOntologyException: " + f.getMessage());
+		} catch (FileNotFoundException g) {
+			System.out.println("FileNotFoundException: " + g.getMessage());
+		} catch (OWLOntologyCreationException g) {
+			System.out.println("InconsistentOntologyException: " + g.getMessage());
+		} catch (ExplanationGeneratorInterruptedException h) {
+			System.out.println("ExplanationGeneratorInterruptedException: " + h.getMessage());
+		} catch (ReasonerInterruptedException i) {
+			System.out.println("ReasonerInterruptedException: " + i.getMessage());
+		} catch (ExplanationException k) {
+			System.out.println("ExplanationException: " + k.getMessage());
+		} catch (TimeOutException l) {
+			System.out.println("TimeOutException: " + l.getMessage());
+		} catch (OutOfMemoryError m) {
+			System.out.println("OutOfMemoryError: " + m.getMessage());
 		}
 		// Warningnya berarti do not create data factories directly; use
 		// OWLOntologyManager::getOWLDataFactory()
@@ -1006,8 +1028,10 @@ public class inconsistency_measure_hermit {
 		return sets;
 	}
 
-	public static int factorial(int number) {
-		int i, fact = 1;
+	//public static int factorial(int number) {
+	public static long factorial(int number) {
+		int i;
+		long fact = 1;
 		for (i = 1; i <= number; i++) {
 			fact = fact * i;
 		}
